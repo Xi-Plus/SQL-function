@@ -5,7 +5,7 @@ class query
 	public $dbname = null;
 	public $table = null;
 	public $blindlist = array();
-	// SELECT WHERE UPDATE
+	// SELECT WHERE UPDATE DELETE
 	public $where = null;
 	public $limit = null;
 	// SELECT
@@ -14,6 +14,9 @@ class query
 	public $group = null;
 	// INSERT UPDATE
 	public $value = null;
+	// SQL
+	public $query = "";
+	
 }
 function dsn($host,$dbname,$type="mysql"){
 	return $type.":dbname=".$dbname.";host=".$host;
@@ -183,9 +186,9 @@ function DELETE($text){
 	$result=fetch($link,$query,$text);
 	return $result;
 }
-function SQL($query){
+function SQL($text){
 	$link=connect($text->dbname);
-	$result=$link->query($query);
+	$result=$link->query($text->query);
 	return $result;
 }
 ?>
