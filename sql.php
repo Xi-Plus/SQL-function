@@ -19,7 +19,7 @@ class query
 	
 }
 function dsn($host,$dbname,$type="mysql"){
-	return $type.":dbname=".$dbname.";host=".$host;
+	return $type.":host=".$host.";dbname=".$dbname.";charset=utf8";
 }
 function connect($dbname){
 	require("db.php");
