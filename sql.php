@@ -27,7 +27,7 @@ function connect($dbname){
 		if(isset($dbname))$link=new PDO(dsn($db->host,$dbname),$db->username,$db->password);
 		else $link=new PDO(dsn($db->host,$db->dbname),$db->username,$db->password);
 	}catch (PDOException $e){
-		$errormessage="DatabaseError: ".$e->getMessage();
+		$errormessage="SQL connect error: ".$e->getMessage();
 		echo $errormessage;
 	}
 	return $link;
@@ -46,17 +46,25 @@ function createbind($text,$value){
 	return ":".$bindvalue;
 }
 function bind($text,$sth){
-	foreach($text->blindlist as $index => $value){
-		$sth->bindValue($index,$value);
+	try{
+		foreach($text->blindlist as $index => $value){
+			$sth->bindValue($index,$value);
+		}
+	}catch(PDOExsception $e){
+		die("SQL bind error: ".$e->getMessage());
 	}
 	return $sth;
 }
 function fetch($link,$query,$text){
-	$sth=$link->prepare($query);
-	$sth=bind($text,$sth);
-	$sth->execute();
-	$sth->setFetchMode(PDO::FETCH_ASSOC);
-	$result=$sth->fetchAll();
+	try{
+		$sth=$link->prepare($query);
+		$sth=bind($text,$sth);
+		$sth->execute();
+		$sth->setFetchMode(PDO::FETCH_ASSOC);
+		$result=$sth->fetchAll();
+	}catch(PDOExsception $e){
+		die("SQL fetch error: ".$e->getMessage());
+	}
 	return $result;
 }
 function fetchone($result){
@@ -188,7 +196,12 @@ function DELETE($text){
 }
 function SQL($text){
 	$link=connect($text->dbname);
-	$result=$link->query($text->query);
+	try{
+		$result=$link->query($text->query);
+	}catch (PDOException $e){
+		$errormessage="SQL query error: ".$e->getMessage();
+		echo $errormessage;
+	}
 	return $result;
 }
 ?>
