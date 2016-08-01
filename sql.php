@@ -55,7 +55,7 @@ function bind($text, $sth) {
 }
 function fetch($link, $query, $text) {
 	try {
-		$link->prepare($query);
+		$sth = $link->prepare($query);
 		$sth = bind($text, $sth);
 		$sth->execute();
 		$sth->setFetchMode(PDO::FETCH_ASSOC);
@@ -80,7 +80,7 @@ function WHERE($text){
 	}
 	$query = "WHERE ";
 	foreach($where as $index => $value) {
-		if (!is_null($value[2])) {
+		if (isset($value[2]) && !is_null($value[2])) {
 			if ($value[2] === "REGEXP") {
 				$query .= "`".$value[0]."` REGEXP ".str_replace("+","[+]",createbind($text,$value[1]))." ";
 			} else {
