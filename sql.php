@@ -82,8 +82,7 @@ function WHERE($text){
 	}
 	$query="WHERE ";
 	foreach($where as $index => $value){
-		if($index!=0)$query.="AND ";
-		if(isset($value[2])){
+		if(!is_null($value[2])){
 			if($value[2]==="REGEXP"){
 				$query.="`".$value[0]."` REGEXP ".str_replace("+","[+]",createbind($text,$value[1]))." ";
 			}else {
@@ -91,6 +90,13 @@ function WHERE($text){
 			}
 		}else {
 			$query.="`".$value[0]."`=".createbind($text,$value[1])." ";
+		}
+		if($index < count($where)-1){
+			if (isset($value[3])) {
+				$query.=$value[3]." ";
+			} else {
+				$query.="AND ";
+			}
 		}
 	}
 	return $query;
