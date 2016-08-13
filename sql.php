@@ -80,7 +80,9 @@ function WHERE($text){
 	}
 	$query = "WHERE ";
 	foreach($where as $index => $value) {
-		if (isset($value[2]) && !is_null($value[2])) {
+		if (!isset($value[0]) || is_null($value[0])) {
+			
+		} else if (isset($value[2]) && !is_null($value[2])) {
 			if ($value[2] === "REGEXP") {
 				$query .= "`".$value[0]."` REGEXP ".str_replace("+","[+]",createbind($text,$value[1]))." ";
 			} else {
