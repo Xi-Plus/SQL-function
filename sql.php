@@ -105,7 +105,8 @@ class query {
 		}
 		return $query;
 	}
-	function LIMIT($limit) {
+	function LIMIT() {
+		$limit = $this->limit;
 		if ($limit == null || $limit == "all") {
 			return "";
 		} else if (is_array($limit)) {
@@ -161,7 +162,7 @@ class query {
 			}
 			$query .= " ";
 		}
-		if ($this->limit !== null) $query .= LIMIT($this->limit);
+		$query .= $this->LIMIT();
 		$sth = $this->fetch($link, $query)->sth;
 		$sth->setFetchMode(PDO::FETCH_ASSOC);
 		$result=$sth->fetchAll();
@@ -190,6 +191,9 @@ class query {
 	function UPDATE() {
 		$link = $this->connect();
 		$query = "UPDATE `".$this->table."` SET ";
+		if (count($this->value) == 0) {
+			return 0;
+		}
 		if (!is_array($this->value[0])) {
 			$this->value = array($this->value);
 		}
@@ -197,13 +201,13 @@ class query {
 			if ($index != 0)$query .= ",";
 			$query .= "`".$temp[0]."`=".$this->createbind($temp[1]);
 		}
-		$query .= " ".$this->WHERE().$this->LIMIT($this->limit);
+		$query .= " ".$this->WHERE().$this->LIMIT();
 		$sth = $this->fetch($link, $query)->sth;
 		return $sth->rowCount();
 	}
 	function DELETE() {
 		$link = $this->connect();
-		$query = "DELETE FROM `".$this->table."` ".$this->WHERE().$this->LIMIT($this->limit);
+		$query = "DELETE FROM `".$this->table."` ".$this->WHERE().$this->LIMIT();
 		$sth = $this->fetch($link, $query)->sth;
 		return $sth->rowCount();
 	}
