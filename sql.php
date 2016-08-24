@@ -148,8 +148,8 @@ class query {
 			$query .= " ";
 		}
 		if ($this->order !== null) {
-			if (!is_array($this->order)) {
-				exit("WHERE isn't a array");
+			if (is_string($this->order)) {
+				$this->order = array(array($this->order));
 			} else if(!is_array($this->order[0])) {
 				$this->order = array($this->order);
 			}
