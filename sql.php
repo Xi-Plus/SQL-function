@@ -1,8 +1,12 @@
 <?php
 class query {
 	//ALL
+	public $host = null;
 	public $dbname = null;
 	public $table = null;
+	public $username = null;
+	public $password = null;
+	public $charset = null;
 	public $blindlist = array();
 	// SELECT WHERE UPDATE DELETE
 	public $where = null;
@@ -15,199 +19,202 @@ class query {
 	public $value = null;
 	// SQL
 	public $query = "";
-	
-}
-function dsn($host, $dbname, $type="mysql") {
-	return $type.":host=".$host.";dbname=".$dbname.";charset=utf8";
-}
-function connect($dbname) {
-	require("db.php");
-	try {
-		if(isset($dbname)) $link = new PDO(dsn($db->host, $dbname), $db->username, $db->password);
-		else $link = new PDO(dsn($db->host, $db->dbname), $db->username, $db->password);
-	} catch (PDOException $e) {
-		exit("SQL connect error: ".$e->getMessage());
+	function __construct(){
+		require("db.php");
+		$this->host = $db->host;
+		$this->dbname = $db->dbname;
+		$this->table = $db->table;
+		$this->username = $db->username;
+		$this->password = $db->password;
+		$this->type = $db->type;
+		$this->charset = $db->charset;
 	}
-	return $link;
-}
-function randomkey($length) {
-	$pattern = "abcdefghijklmnopqrstuvwxyz";
-	$key = "";
-	for($i=0; $i < $length; $i++){
-		$key .= $pattern{rand(0, 25)};
-	}
-	return $key;
-}
-function createbind($text, $value) {
-	$bindvalue = randomkey(8);
-	$text->blindlist[$bindvalue] = $value;
-	return ":".$bindvalue;
-}
-function bind($text, $sth) {
-	try {
-		foreach($text->blindlist as $index => $value){
-			$sth->bindValue($index, $value);
+	function connect() {
+		try {
+			$link = new PDO($this->type.":host=".$this->host.";dbname=".$this->dbname.";charset=".$this->charset, $this->username, $this->password);
+		} catch (PDOException $e) {
+			exit("SQL connect error: ".$e->getMessage());
 		}
-	} catch (PDOExsception $e) {
-		die("SQL bind error: ".$e->getMessage());
+		return $link;
 	}
-	return $sth;
-}
-function fetch($link, $query, $text) {
-	try {
-		$sth = $link->prepare($query);
-		$sth = bind($text, $sth);
-		$sth->execute();
+	function randomkey($length) {
+		$pattern = "abcdefghijklmnopqrstuvwxyz";
+		$key = "";
+		for($i=0; $i < $length; $i++){
+			$key .= $pattern{rand(0, 25)};
+		}
+		return $key;
+	}
+	function createbind($value) {
+		$bindvalue = $this->randomkey(8);
+		$this->blindlist[$bindvalue] = $value;
+		return ":".$bindvalue;
+	}
+	function bind($sth) {
+		try {
+			foreach($this->blindlist as $index => $value){
+				$sth->bindValue($index, $value);
+			}
+		} catch (PDOExsception $e) {
+			exit("SQL bind error: ".$e->getMessage());
+		}
+		return $sth;
+	}
+	function fetch($link, $query) {
+		try {
+			$sth = $link->prepare($query);
+			$sth = $this->bind($sth);
+			$success = $sth->execute();
+			$this->blindlist=array();
+			return (object)["success"=>$success, "sth"=>$sth];
+		} catch(PDOExsception $e) {
+			exit("SQL fetch error: ".$e->getMessage());
+		}
+		return $result;
+	}
+	function WHERE(){
+		$where = $this->where;
+		if ($where == null) return "";
+		if (!is_array($where)) {
+			exit("WHERE isn't a array");
+		} else if (!is_array($where[0])) {
+			$where = array($where);
+		}
+		$query = "WHERE ";
+		foreach($where as $index => $value) {
+			if (!isset($value[0]) || is_null($value[0])) {
+				
+			} else if (isset($value[2]) && !is_null($value[2])) {
+				if ($value[2] === "REGEXP") {
+					$query .= "`".$value[0]."` REGEXP ".str_replace("+","[+]",$this->createbind($value[1]))." ";
+				} else if (!is_null($value[1])) {
+					$query .= "`".$value[0]."` ".$value[2].$this->createbind($value[1])." ";
+				} else {
+					$query .= "`".$value[0]."` ".$value[2]." ";
+				}
+			} else {
+				$query .= "`".$value[0]."`=".$this->createbind($value[1])." ";
+			}
+			if ($index < count($where)-1) {
+				if (isset($value[3])) {
+					$query .= $value[3]." ";
+				} else {
+					$query .= "AND ";
+				}
+			}
+		}
+		return $query;
+	}
+	function LIMIT($limit) {
+		if ($limit == null || $limit == "all") {
+			return "";
+		} else if (is_array($limit)) {
+			if (!isset($limit[1])) {
+				exit("LIMIT offset 2 undefined");
+			} else if(!is_numeric($limit[0]) || !is_numeric($limit[1])) {
+				exit("LIMIT wrong type");
+			} else {
+				return "LIMIT ".$limit[0].",".$limit[1]." ";
+			}
+		} else if (is_numeric($limit)) {
+			return "LIMIT ".$limit." ";
+		} else {
+			exit("LIMIT wrong type");
+		}
+	}
+	function SELECT($oneline = false) {
+		$link = $this->connect();
+		$query = "SELECT ";
+		if (is_string($this->column)) {
+			$query .= $this->column." ";
+		} else if (is_array($this->column)) {
+			foreach ($this->column as $index => $value) {
+				if ($index!=0) $query .= ",";
+				$query .= $value;
+			}
+			$query.=" ";
+		}
+		$query .= "FROM `".$this->table."` ";
+		$query .= $this->WHERE();
+		if ($this->group !== null) {
+			if (!is_array($this->group)) {
+				$this->group = array($this->group);
+			}
+			$query .= "GROUP BY ";
+			foreach ($this->group as $index => $value) {
+				if ($index != 0) $query .= ",";
+				$query .= "`".$value."`";
+			}
+			$query .= " ";
+		}
+		if ($this->order !== null) {
+			if (!is_array($this->order)) {
+				exit("WHERE isn't a array");
+			} else if(!is_array($this->order[0])) {
+				$this->order = array($this->order);
+			}
+			$query .= "ORDER BY ";
+			foreach ($this->order as $index => $value) {
+				if ($index != 0) $query .= ",";
+				if (isset($value[1])) $query .= "`".$value[0]."` ".$value[1];
+				else $query .= "`".$value[0]."` ASC";
+			}
+			$query .= " ";
+		}
+		if ($this->limit !== null) $query .= LIMIT($this->limit);
+		$sth = $this->fetch($link, $query)->sth;
 		$sth->setFetchMode(PDO::FETCH_ASSOC);
-		$result = $sth->fetchAll();
-	} catch(PDOExsception $e) {
-		die("SQL fetch error: ".$e->getMessage());
+		$result=$sth->fetchAll();
+		if ($oneline) return $result[0];
+		else return $result;
 	}
-	return $result;
-}
-function fetchone($result) {
-	foreach($result as $temp){
-		return $temp;
-	}
-}
-function WHERE($text){
-	$where = $text->where;
-	if ($where == null) return "";
-	if (!is_array($where)) {
-		die("WHERE isn't a array");
-	} else if (!is_array($where[0])) {
-		$where = array($where);
-	}
-	$query = "WHERE ";
-	foreach($where as $index => $value) {
-		if (!isset($value[0]) || is_null($value[0])) {
-			
-		} else if (isset($value[2]) && !is_null($value[2])) {
-			if ($value[2] === "REGEXP") {
-				$query .= "`".$value[0]."` REGEXP ".str_replace("+","[+]",createbind($text,$value[1]))." ";
-			} else {
-				$query .= "`".$value[0]."`".$value[2].createbind($text,$value[1])." ";
-			}
-		} else {
-			$query .= "`".$value[0]."`=".createbind($text,$value[1])." ";
+	function INSERT() {
+		$link = $this->connect();
+		$query = "INSERT INTO `".$this->table."` (";
+		if (!is_array($this->value[0])) {
+			$this->value = array($this->value);
 		}
-		if ($index < count($where)-1) {
-			if (isset($value[3])) {
-				$query .= $value[3]." ";
-			} else {
-				$query .= "AND ";
-			}
+		foreach ($this->value as $index => $temp) {
+			if ($index != 0) $query.=",";
+			$query .= "`".$temp[0]."`";
 		}
-	}
-	return $query;
-}
-function LIMIT($limit) {
-	if ($limit == null || $limit == "all") {
-		return "";
-	} else if (is_array($limit)) {
-		if (!isset($limit[1])) {
-			die("LIMIT offset 2 undefined");
-		} else if(!is_numeric($limit[0]) || !is_numeric($limit[1])) {
-			die("LIMIT wrong type");
-		} else {
-			return "LIMIT ".$limit[0].",".$limit[1]." ";
-		}
-	} else if (is_numeric($limit)) {
-		return "LIMIT ".$limit." ";
-	} else {
-		die("LIMIT wrong type");
-	}
-}
-function SELECT($text) {
-	$link = connect($text->dbname);
-	$query = "SELECT ";
-	if (is_string($text->column)) {
-		$query .= $text->column." ";
-	} else if (is_array($text->column)) {
-		foreach ($text->column as $index => $value) {
-			if ($index!=0) $query .= ",";
-			$query .= $value;
-		}
-		$query.=" ";
-	}
-	$query .= "FROM `".$text->table."` ";
-	$query .= WHERE($text);
-	if ($text->group !== null) {
-		if (!is_array($text->group)) {
-			$text->group = array($text->group);
-		}
-		$query .= "GROUP BY ";
-		foreach ($text->group as $index => $value) {
+		$query .= ")VALUES(";
+		foreach ($this->value as $index => $temp) {
 			if ($index != 0) $query .= ",";
-			$query .= "`".$value."`";
+			$query .= $this->createbind($temp[1]);
 		}
-		$query .= " ";
+		$query .= ")";
+		$success = $this->fetch($link, $query)->success;
+		return $success;
 	}
-	if ($text->order !== null) {
-		if (!is_array($text->order)) {
-			die("WHERE isn't a array");
-		} else if(!is_array($text->order[0])) {
-			$text->order = array($text->order);
+	function UPDATE() {
+		$link = $this->connect();
+		$query = "UPDATE `".$this->table."` SET ";
+		if (!is_array($this->value[0])) {
+			$this->value = array($this->value);
 		}
-		$query .= "ORDER BY ";
-		foreach ($text->order as $index => $value) {
-			if ($index != 0) $query .= ",";
-			if (isset($value[1])) $query .= "`".$value[0]."` ".$value[1];
-			else $query .= "`".$value[0]."` ASC";
+		foreach ($this->value as $index => $temp) {
+			if ($index != 0)$query .= ",";
+			$query .= "`".$temp[0]."`=".$this->createbind($temp[1]);
 		}
-		$query .= " ";
+		$query .= " ".$this->WHERE().$this->LIMIT($this->limit);
+		$sth = $this->fetch($link, $query)->sth;
+		return $sth->rowCount();
 	}
-	if ($text->limit !== null) $query .= LIMIT($text->limit);
-	$result = fetch($link, $query, $text);
-	return $result;
-}
-function INSERT($text) {
-	$link = connect($text->dbname);
-	$query = "INSERT INTO `".$text->table."` (";
-	if (!is_array($text->value[0])) {
-		$text->value = array($text->value);
+	function DELETE() {
+		$link = $this->connect();
+		$query = "DELETE FROM `".$this->table."` ".$this->WHERE().$this->LIMIT($this->limit);
+		$sth = $this->fetch($link, $query)->sth;
+		return $sth->rowCount();
 	}
-	foreach ($text->value as $index => $temp) {
-		if ($index != 0) $query.=",";
-		$query .= "`".$temp[0]."`";
+	function SQL() {
+		$link = $this->connect();
+		try {
+			$result = $link->query($this->query);
+			return $result;
+		} catch (PDOException $e) {
+			exit("SQL query error: ".$e->getMessage());
+		}
 	}
-	$query .= ")VALUES(";
-	foreach ($text->value as $index => $temp) {
-		if ($index != 0) $query .= ",";
-		$query .= createbind($text, $temp[1]);
-	}
-	$query .= ")";
-	$result = fetch($link, $query, $text);
-	return $result;
-}
-function UPDATE($text) {
-	$link = connect($text->dbname);
-	$query = "UPDATE `".$text->table."` SET ";
-	if (!is_array($text->value[0])) {
-		$text->value = array($text->value);
-	}
-	foreach ($text->value as $index => $temp) {
-		if ($index != 0)$query .= ",";
-		$query .= "`".$temp[0]."`=".createbind($text, $temp[1]);
-	}
-	$query .= " ".WHERE($text).LIMIT($text->limit);
-	$result = fetch($link, $query, $text);
-	return $result;
-}
-function DELETE($text) {
-	$link = connect($text->dbname);
-	$query = "DELETE FROM `".$text->table."` ".WHERE($text).LIMIT($text->limit);
-	$result = fetch($link, $query, $text);
-	return $result;
-}
-function SQL($text) {
-	$link = connect($text->dbname);
-	try {
-		$result = $link->query($text->query);
-	} catch (PDOException $e) {
-		$errormessage = "SQL query error: ".$e->getMessage();
-		echo $errormessage;
-	}
-	return $result;
 }
 ?>
