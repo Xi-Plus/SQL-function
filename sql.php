@@ -41,7 +41,7 @@ class query {
 		$pattern = "abcdefghijklmnopqrstuvwxyz";
 		$key = "";
 		for($i=0; $i < $length; $i++){
-			$key .= $pattern{rand(0, 25)};
+			$key .= $pattern[rand(0, 25)];
 		}
 		return $key;
 	}
@@ -83,7 +83,7 @@ class query {
 		$query = "WHERE ";
 		foreach($where as $index => $value) {
 			if (!isset($value[0]) || is_null($value[0])) {
-				
+
 			} else if (isset($value[2]) && !is_null($value[2])) {
 				if ($value[2] === "REGEXP") {
 					$query .= "`".$value[0]."` REGEXP ".str_replace("+","[+]",$this->createbind($value[1]))." ";
