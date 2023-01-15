@@ -15,7 +15,7 @@ class query {
 	public $value = null;
 	// SQL
 	public $query = "";
-	
+
 }
 function dsn($host, $dbname, $type="mysql") {
 	return $type.":host=".$host.";dbname=".$dbname.";charset=utf8";
@@ -34,7 +34,7 @@ function randomkey($length) {
 	$pattern = "abcdefghijklmnopqrstuvwxyz";
 	$key = "";
 	for($i=0; $i < $length; $i++){
-		$key .= $pattern{rand(0, 25)};
+		$key .= $pattern[rand(0, 25)];
 	}
 	return $key;
 }
@@ -81,7 +81,7 @@ function WHERE($text){
 	$query = "WHERE ";
 	foreach($where as $index => $value) {
 		if (!isset($value[0]) || is_null($value[0])) {
-			
+
 		} else if (isset($value[2]) && !is_null($value[2])) {
 			if ($value[2] === "REGEXP") {
 				$query .= "`".$value[0]."` REGEXP ".str_replace("+","[+]",createbind($text,$value[1]))." ";
